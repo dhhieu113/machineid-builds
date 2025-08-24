@@ -1,0 +1,57 @@
+name: Release - MachineID
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # e.g., v1.0.0
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        build_type: [Release]
+      fail-fast: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1
+        with:
+          cmake-version: '3.26.0'
+
+      - name: Configure
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --config ${{ matrix.build_type }} --parallel
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp build/**/*.a artifacts/ || true
+          cp build/**/*.so* artifacts/ || true
+          cp build/**/*.dylib artifacts/ || true
+          cp build/**/*.lib artifacts/ || true
+          cp build/**/*.dll artifacts/ || true
+          ls -la artifacts
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
