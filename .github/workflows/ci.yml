@@ -154,27 +154,37 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           # Create directory structure for native libraries
-          mkdir -p bin/Release/x64
-          mkdir -p bin/Release/x86
+          New-Item -Path "bin/Release/x64" -ItemType Directory -Force
+          New-Item -Path "bin/Release/x86" -ItemType Directory -Force
           
-          # Move the Windows artifacts to appropriate folders
-          if (Test-Path "bin/Release/machineid-windows-latest-Release/build/*/machineid_dotnet.dll") {
-            $x64Path = Get-ChildItem -Path "bin/Release/machineid-windows-latest-Release/build" -Recurse -Filter "machineid_dotnet.dll" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1
-            $x86Path = Get-ChildItem -Path "bin/Release/machineid-windows-latest-Release/build" -Recurse -Filter "machineid_dotnet.dll" | Where-Object { $_.FullName -like "*Win32*" -or $_.FullName -like "*x86*" } | Select-Object -First 1
-            
-            if ($x64Path) {
-              Copy-Item -Path $x64Path.FullName -Destination "bin/Release/x64/"
-            } else {
-              Write-Warning "x64 library not found"
+          # Debug: List all downloaded artifacts
+          Write-Host "Listing all downloaded artifacts:"
+          Get-ChildItem -Path "bin/Release" -Recurse | Format-Table -Property FullName
+          
+          # Search for machineid_dotnet.dll in all downloaded artifacts
+          $dotnetDlls = Get-ChildItem -Path "bin/Release" -Recurse -Filter "machineid_dotnet.dll" -ErrorAction SilentlyContinue
+          
+          if ($dotnetDlls.Count -gt 0) {
+            Write-Host "Found $($dotnetDlls.Count) machineid_dotnet.dll files:"
+            foreach ($dll in $dotnetDlls) {
+              Write-Host " - $($dll.FullName)"
             }
             
-            if ($x86Path) {
-              Copy-Item -Path $x86Path.FullName -Destination "bin/Release/x86/"
-            } else {
-              Write-Warning "x86 library not found"
-            }
+            # For now, copy the first found dll to both x64 and x86 (assuming it's x64 by default on GitHub runners)
+            # In a real scenario, you'd build both x64 and x86 versions separately
+            $mainDll = $dotnetDlls[0]
+            Copy-Item -Path $mainDll.FullName -Destination "bin/Release/x64/machineid_dotnet.dll" -Force
+            Write-Host "Copied $($mainDll.FullName) to bin/Release/x64/"
+            
+            # If you need x86 support, you would need to configure CMake to build for Win32 platform as well
+            Write-Warning "x86 library not built - only x64 version available"
           } else {
-            Write-Warning "No machineid_dotnet.dll files found in artifacts"
+            Write-Warning "No machineid_dotnet.dll files found in any artifacts"
+            Write-Host "Searching for any .dll files:"
+            $allDlls = Get-ChildItem -Path "bin/Release" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+            foreach ($dll in $allDlls) {
+              Write-Host " - $($dll.FullName)"
+            }
           }
         shell: pwsh
 
