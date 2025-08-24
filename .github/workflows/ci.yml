@@ -117,16 +117,11 @@ jobs:
         shell: bash
   
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          files: |
-            artifacts/**/*.dll
-            artifacts/**/*.lib
-            artifacts/**/*.so
-            artifacts/**/*.dylib
-            artifacts/**/*.a
-          fail_on_unmatched_files: false  # Don't fail if some files aren't found
-          generate_release_notes: true
+           artifacts: "artifacts/*"
+           allowUpdates: true   # 👈 allows updating existing release
+           replacesArtifacts: true  # 👈 replaces old assets
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
