@@ -28,9 +28,9 @@ namespace MachineId
             
             // Apply platform-specific naming conventions
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                libName = $"lib{LibraryName}.so";
+                libName = $"libmachineid.dotnet.so";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                libName = $"lib{LibraryName}.dylib";
+                libName = $"libmachineid.dotnet.dylib";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 libName = $"{LibraryName}.dll";
 
