@@ -39,3 +39,15 @@ if (BUILD_TESTING)
     add_executable(test tests/test.cpp)
     target_link_libraries(test PRIVATE machineid_static) # link to static by default
 endif()
+
+# ---- .NET BINDING SHIM ----
+add_library(machineid_dotnet SHARED machineid_dotnet_shim.cpp)
+target_include_directories(machineid_dotnet
+    PRIVATE src
+    PUBLIC include)
+if (WIN32)
+    target_link_libraries(machineid_dotnet PRIVATE iphlpapi)
+endif()
+
+# Set output name for the .NET binding
+set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid")
