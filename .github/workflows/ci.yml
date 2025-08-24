@@ -51,13 +51,6 @@ jobs:
           fi
         shell: bash
 
-      - name: Collect build artifacts
-        if: success()
-        run: |
-          mkdir -p artifacts
-          find build -maxdepth 3 -type f \( -name '*.a' -o -name '*.so' -o -name '*.dylib' -o -name '*.dll' -o -name '*.lib' -o -name '*.exe' \) -exec cp --parents {} artifacts/ \; || true
-          ls -la artifacts || echo "no artifacts collected"
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
