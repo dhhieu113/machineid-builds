@@ -3,6 +3,8 @@ name: CI - CMake build matrix
 on:
   push:
     branches: [ master, main ]
+    tags:
+      - 'v*'   # triggers on v0.0.1, v1.0.0, v2.3.4 etc.
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
