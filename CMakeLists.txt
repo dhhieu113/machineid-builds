@@ -24,6 +24,11 @@ target_include_directories(machineid_shared
     PUBLIC include)
 if (WIN32)
     target_link_libraries(machineid_shared PRIVATE iphlpapi)
+else()
+    # Force link with iphlpapi on MSYS2/MinGW
+    if(MINGW)
+        target_link_libraries(machineid_shared PRIVATE iphlpapi)
+    endif()
 endif()
 
 # Ensure proper output names (so both are "machineid", not suffixed)
