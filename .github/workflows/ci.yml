@@ -105,8 +105,9 @@ jobs:
           path: artifacts
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: goreleaser/goreleaser-action@v1
         with:
+          args: release
           files: artifacts/**/*
           overwrite: true
         env:
