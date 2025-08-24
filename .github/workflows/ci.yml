@@ -52,6 +52,20 @@ jobs:
             echo "No tests configured (no CTestTestfile.cmake found)."
           fi
         shell: bash
+        
+      - name: Collect build artifacts
+        run: |
+          mkdir -p artifacts
+          # Linux/macOS static lib
+          find build -name "libmachineid.a" -exec cp {} artifacts/ \; || true
+          # Linux shared lib
+          find build -name "libmachineid.so*" -exec cp {} artifacts/ \; || true
+          # macOS shared lib
+          find build -name "libmachineid.dylib" -exec cp {} artifacts/ \; || true
+          # Windows import lib and DLL
+          find build -name "machineid.lib" -exec cp {} artifacts/ \; || true
+          find build -name "machineid.dll" -exec cp {} artifacts/ \; || true
+          ls -la artifacts || echo "No artifacts found"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
