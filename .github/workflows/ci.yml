@@ -186,28 +186,41 @@ jobs:
           dotnet restore dotnet/MachineId.csproj
           dotnet build dotnet/MachineId.csproj --configuration Release --no-restore
         
-      - name: Pack NuGet package
+      - name: Pack NuGet package (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          # Create a platform-specific suffix for development builds to avoid conflicts
-          $platformSuffix = ""
-          if (-not "${{ github.ref }}".StartsWith('refs/tags/v')) {
-            if ("${{ matrix.os }}" -eq "ubuntu-latest") {
-              $platformSuffix = "-linux"
-            } elseif ("${{ matrix.os }}" -eq "macos-latest") {
-              $platformSuffix = "-macos"
-            } elseif ("${{ matrix.os }}" -eq "windows-latest") {
-              $platformSuffix = "-win"
-            }
-          }
-          
           # Extract version from tag if it exists
           if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
             $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
             dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
           } else {
-            # For non-tagged builds, add platform suffix to package ID to avoid conflicts
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId$platformSuffix" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-win" --output nupkgs
           }
+        shell: pwsh
+      
+      - name: Pack NuGet package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Extract version from tag if it exists
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
+          else
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-linux" --output nupkgs
+          fi
+        shell: bash
+        
+      - name: Pack NuGet package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Extract version from tag if it exists
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
+          else
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-macos" --output nupkgs
+          fi
+        shell: bash
 
       - name: Upload NuGet package artifact
         uses: actions/upload-artifact@v4
@@ -243,7 +256,12 @@ jobs:
       - name: Create merged NuGet package
         run: |
           # Extract version from tag
-          $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
+          $version = ""
+          if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
+            $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
+          } else {
+            $version = "1.0.0-dev"  # Default version if not a tag
+          }
           
           # Create temp dirs for each package
           New-Item -Path "temp" -ItemType Directory -Force
@@ -257,20 +275,25 @@ jobs:
           }
           
           # Use the Windows package as base and extract it
-          $basePackage = $nupkgFiles | Where-Object { $_.FullName -like "*windows*" } | Select-Object -First 1
+          $basePackage = $nupkgFiles | Where-Object { $_.FullName -like "*windows*" -or $_.FullName -like "*win*" } | Select-Object -First 1
           if (-not $basePackage) {
             $basePackage = $nupkgFiles[0]
           }
+          
+          Write-Host "Using base package: $($basePackage.FullName)"
           
           # Extract all packages
           foreach ($nupkg in $nupkgFiles) {
             $extractDir = "temp/$($nupkg.BaseName)"
             New-Item -Path $extractDir -ItemType Directory -Force
+            Write-Host "Extracting $($nupkg.FullName) to $extractDir"
             Expand-Archive -Path $nupkg.FullName -DestinationPath $extractDir -Force
           }
           
           # Copy all extracted content to the merged folder
-          Copy-Item -Path "temp/$($basePackage.BaseName)/*" -Destination "merged/" -Recurse -Force
+          $baseExtractDir = "temp/$($basePackage.BaseName)"
+          Write-Host "Copying base content from $baseExtractDir to merged/"
+          Copy-Item -Path "$baseExtractDir/*" -Destination "merged/" -Recurse -Force
           
           # Copy runtime folders from other packages
           foreach ($extractDir in (Get-ChildItem -Path "temp" -Directory)) {
@@ -278,7 +301,9 @@ jobs:
               $runtimesDir = Join-Path $extractDir.FullName "runtimes"
               if (Test-Path $runtimesDir) {
                 foreach ($runtimeFolder in (Get-ChildItem -Path $runtimesDir -Directory)) {
-                  if (-not (Test-Path "merged/runtimes/$($runtimeFolder.Name)")) {
+                  $targetPath = "merged/runtimes/$($runtimeFolder.Name)"
+                  if (-not (Test-Path $targetPath)) {
+                    Write-Host "Copying runtime folder $($runtimeFolder.FullName) to $targetPath"
                     Copy-Item -Path $runtimeFolder.FullName -Destination "merged/runtimes/" -Recurse -Force
                   }
                 }
@@ -287,6 +312,7 @@ jobs:
           }
           
           # Create the final package
+          Write-Host "Creating final merged package as MachineId.$version.nupkg"
           Compress-Archive -Path "merged/*" -DestinationPath "merged-package.zip" -Force
           Rename-Item -Path "merged-package.zip" -NewName "MachineId.$version.nupkg"
         shell: pwsh
@@ -299,5 +325,7 @@ jobs:
 
       - name: Publish NuGet package
         run: |
-          dotnet nuget push MachineId.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+          dotnet nuget push MachineId.*.nupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
         shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
