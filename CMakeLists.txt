@@ -69,10 +69,10 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(machineid_dotnet PRIVATE dl rt)
 endif()
 
-# Set output name for the .NET binding - use consistent name across all platforms
-set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid_dotnet")
+# Set output name for the .NET binding
+set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid.dotnet")
 
-# On Windows, ensure that the .NET binding has the correct output name
+# On Windows, ensure that the .NET binding has a different output name to avoid conflicts
 if(WIN32)
     set_target_properties(machineid_dotnet PROPERTIES 
         RUNTIME_OUTPUT_NAME "machineid_dotnet"
