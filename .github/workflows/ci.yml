@@ -286,15 +286,7 @@ jobs:
             Write-Host " - $($pkg.FullName)"
           }
           
-          # Use the Windows package as base and extract it
-          $basePackage = $nupkgFiles | Where-Object { $_.FullName -like "*windows*" -or $_.FullName -like "*win*" } | Select-Object -First 1
-          if (-not $basePackage) {
-            $basePackage = $nupkgFiles[0]
-          }
-          
-          Write-Host "Using base package: $($basePackage.FullName)"
-          
-          # Extract all packages
+          # Extract all packages first
           foreach ($nupkg in $nupkgFiles) {
             $extractDir = "temp/$($nupkg.BaseName)"
             New-Item -Path $extractDir -ItemType Directory -Force
@@ -303,30 +295,54 @@ jobs:
             $zipPath = [System.IO.Path]::ChangeExtension($nupkg.FullName, "zip")
             Copy-Item -Path $nupkg.FullName -Destination $zipPath
             Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+            Remove-Item $zipPath  # Clean up zip file
           }
           
-          # Copy all extracted content to the merged folder
+          # Use any package as base for common files (they should be identical)
+          $basePackage = $nupkgFiles[0]
           $baseExtractDir = "temp/$($basePackage.BaseName)"
-          Write-Host "Copying base content from $baseExtractDir to merged/"
-          Copy-Item -Path "$baseExtractDir/*" -Destination "merged/" -Recurse -Force
+          Write-Host "Using base package for common files: $($basePackage.FullName)"
           
-          # Copy runtime folders from other packages
+          # Copy base content (excluding runtimes folder, we'll handle that separately)
+          Write-Host "Copying common files from base package..."
+          foreach ($item in (Get-ChildItem -Path $baseExtractDir)) {
+            if ($item.Name -ne "runtimes") {
+              Write-Host "  Copying $($item.Name)"
+              Copy-Item -Path $item.FullName -Destination "merged/" -Recurse -Force
+            }
+          }
+          
+          # Create runtimes directory
+          New-Item -Path "merged/runtimes" -ItemType Directory -Force
+          
+          # Collect runtime folders from ALL packages
+          $collectedRuntimes = @()
           foreach ($extractDir in (Get-ChildItem -Path "temp" -Directory)) {
-            if ($extractDir.Name -ne $basePackage.BaseName) {
-              $runtimesDir = Join-Path $extractDir.FullName "runtimes"
-              if (Test-Path $runtimesDir) {
-                foreach ($runtimeFolder in (Get-ChildItem -Path $runtimesDir -Directory)) {
-                  $targetPath = "merged/runtimes/$($runtimeFolder.Name)"
-                  if (-not (Test-Path $targetPath)) {
-                    Write-Host "Copying runtime folder $($runtimeFolder.FullName) to $targetPath"
-                    # Create the target directory first
-                    New-Item -Path $targetPath -ItemType Directory -Force
-                    # Copy only the contents, not the folder itself
-                    Copy-Item -Path "$($runtimeFolder.FullName)\*" -Destination $targetPath -Recurse -Force
-                  }
+            $runtimesDir = Join-Path $extractDir.FullName "runtimes"
+            if (Test-Path $runtimesDir) {
+              foreach ($runtimeFolder in (Get-ChildItem -Path $runtimesDir -Directory)) {
+                $runtimeId = $runtimeFolder.Name
+                if ($collectedRuntimes -notcontains $runtimeId) {
+                  $collectedRuntimes += $runtimeId
+                  $targetPath = "merged/runtimes/$runtimeId"
+                  Write-Host "Copying runtime $runtimeId from $($extractDir.Name)"
+                  New-Item -Path $targetPath -ItemType Directory -Force
+                  Copy-Item -Path "$($runtimeFolder.FullName)\*" -Destination $targetPath -Recurse -Force
                 }
               }
             }
+          }
+          
+          Write-Host "Collected runtimes: $($collectedRuntimes -join ', ')"
+          
+          # Verify we have all expected platforms
+          $expectedRuntimes = @("win-x64", "linux-x64", "osx-x64")
+          $missingRuntimes = $expectedRuntimes | Where-Object { $collectedRuntimes -notcontains $_ }
+          if ($missingRuntimes.Count -gt 0) {
+            Write-Warning "Missing expected runtime platforms: $($missingRuntimes -join ', ')"
+            Write-Host "Available platforms: $($collectedRuntimes -join ', ')"
+          } else {
+            Write-Host "✅ All expected runtime platforms found: $($expectedRuntimes -join ', ')"
           }
           
           # Create the final package
