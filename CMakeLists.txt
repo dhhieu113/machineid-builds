@@ -4,15 +4,38 @@ project(machineid LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(machineid STATIC src/machineid/machineid.cpp)
-target_include_directories(machineid
-	PRIVATE src
-	PUBLIC include)
+# ---- STATIC LIBRARY ----
+add_library(machineid_static STATIC src/machineid/machineid.cpp)
+target_include_directories(machineid_static
+    PRIVATE src
+    PUBLIC include)
 if (WIN32)
-	target_link_libraries(machineid PRIVATE iphlpapi)
+    target_link_libraries(machineid_static PRIVATE iphlpapi)
 endif()
 
+# ---- SHARED LIBRARY ----
+add_library(machineid_shared SHARED src/machineid/machineid.cpp)
+target_include_directories(machineid_shared
+    PRIVATE src
+    PUBLIC include)
+if (WIN32)
+    target_link_libraries(machineid_shared PRIVATE iphlpapi)
+endif()
+
+# Ensure proper output names (so both are "machineid", not suffixed)
+set_target_properties(machineid_static PROPERTIES OUTPUT_NAME "machineid")
+set_target_properties(machineid_shared PROPERTIES OUTPUT_NAME "machineid")
+
+# On Windows, differentiate import libs and DLLs
+if (WIN32)
+    set_target_properties(machineid_shared PROPERTIES
+        RUNTIME_OUTPUT_NAME "machineid"
+        ARCHIVE_OUTPUT_NAME "machineid"
+        LIBRARY_OUTPUT_NAME "machineid")
+endif()
+
+# ---- TESTS ----
 if (BUILD_TESTING)
-	add_executable(test tests/test.cpp)
-	target_link_libraries(test PRIVATE machineid)
+    add_executable(test tests/test.cpp)
+    target_link_libraries(test PRIVATE machineid_static) # link to static by default
 endif()
