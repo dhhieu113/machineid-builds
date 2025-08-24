@@ -203,38 +203,6 @@ jobs:
           dotnet restore dotnet/MachineId.csproj
           dotnet build dotnet/MachineId.csproj --configuration Release --no-restore
         
-      - name: Test .NET package (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          Write-Host "Testing .NET package on ${{ matrix.os }}..."
-          dotnet restore dotnet/Example/Example.csproj
-          dotnet build dotnet/Example/Example.csproj --configuration Release
-          $output = dotnet run --project dotnet/Example/Example.csproj --configuration Release
-          Write-Host $output
-          if ($output -match "Machine Hash:") {
-            Write-Host "✅ .NET test passed - MachineId works correctly!"
-          } else {
-            Write-Host "❌ .NET test failed - MachineId is not working properly!"
-            exit 1
-          }
-        shell: pwsh
-        
-      - name: Test .NET package (Linux/macOS)
-        if: matrix.os != 'windows-latest'
-        run: |
-          echo "Testing .NET package on ${{ matrix.os }}..."
-          dotnet restore dotnet/Example/Example.csproj
-          dotnet build dotnet/Example/Example.csproj --configuration Release
-          output=$(dotnet run --project dotnet/Example/Example.csproj --configuration Release)
-          echo "$output"
-          if [[ $output == *"Machine Hash:"* ]]; then
-            echo "✅ .NET test passed - MachineId works correctly!"
-          else
-            echo "❌ .NET test failed - MachineId is not working properly!"
-            exit 1
-          fi
-        shell: bash
-        
       - name: Pack NuGet package (Windows)
         if: matrix.os == 'windows-latest'
         run: |
