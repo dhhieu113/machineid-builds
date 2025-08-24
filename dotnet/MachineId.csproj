@@ -22,12 +22,36 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\bin\$(Configuration)\$(PlatformTarget)\machineid_dotnet.*">
-      <Link>runtimes\win-$(PlatformTarget)\native\%(Filename)%(Extension)</Link>
+    <!-- Windows native libraries -->
+    <None Include="..\bin\Release\x64\machineid_dotnet.*" Condition="Exists('..\bin\Release\x64')">
+      <Link>runtimes\win-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-$(PlatformTarget)\native\%(Filename)%(Extension)</PackagePath>
+      <PackagePath>runtimes\win-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
+    <None Include="..\bin\Release\x86\machineid_dotnet.*" Condition="Exists('..\bin\Release\x86')">
+      <Link>runtimes\win-x86\native\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\win-x86\native\%(Filename)%(Extension)</PackagePath>
+    </None>
+    
+    <!-- Linux native libraries -->
+    <None Include="..\bin\Release\linux-x64\*.so" Condition="Exists('..\bin\Release\linux-x64')">
+      <Link>runtimes\linux-x64\native\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\linux-x64\native\%(Filename)%(Extension)</PackagePath>
+    </None>
+    
+    <!-- macOS native libraries -->
+    <None Include="..\bin\Release\osx-x64\*.dylib" Condition="Exists('..\bin\Release\osx-x64')">
+      <Link>runtimes\osx-x64\native\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes\osx-x64\native\%(Filename)%(Extension)</PackagePath>
+    </None>
+    
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>

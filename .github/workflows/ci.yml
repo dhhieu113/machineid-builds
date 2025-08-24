@@ -114,8 +114,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-dotnet:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -130,7 +133,8 @@ jobs:
         with:
           path: bin/Release
 
-      - name: Organize native libraries
+      - name: Organize native libraries (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
           # Create directory structure for native libraries
           mkdir -p bin/Release/x64
@@ -157,43 +161,143 @@ jobs:
           }
         shell: pwsh
 
+      - name: Organize native libraries (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Create directory structure for native libraries
+          mkdir -p bin/Release/linux-x64
+          
+          # Move the Linux artifacts to appropriate folders
+          find bin/Release/machineid-ubuntu-latest-Release -name "*.so" -type f -exec cp {} bin/Release/linux-x64/ \;
+        shell: bash
+
+      - name: Organize native libraries (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Create directory structure for native libraries
+          mkdir -p bin/Release/osx-x64
+          
+          # Move the macOS artifacts to appropriate folders
+          find bin/Release/machineid-macos-latest-Release -name "*.dylib" -type f -exec cp {} bin/Release/osx-x64/ \;
+        shell: bash
+
       - name: Build .NET package
         run: |
-          dotnet restore dotnet/MachineId.sln
-          dotnet build dotnet/MachineId.sln --configuration Release --no-restore
+          dotnet restore dotnet/MachineId.csproj
+          dotnet build dotnet/MachineId.csproj --configuration Release --no-restore
         
       - name: Pack NuGet package
         run: |
+          # Create a platform-specific suffix for development builds to avoid conflicts
+          $platformSuffix = ""
+          if (-not "${{ github.ref }}".StartsWith('refs/tags/v')) {
+            if ("${{ matrix.os }}" -eq "ubuntu-latest") {
+              $platformSuffix = "-linux"
+            } elseif ("${{ matrix.os }}" -eq "macos-latest") {
+              $platformSuffix = "-macos"
+            } elseif ("${{ matrix.os }}" -eq "windows-latest") {
+              $platformSuffix = "-win"
+            }
+          }
+          
           # Extract version from tag if it exists
           if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
             $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
           } else {
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build --output nupkgs
+            # For non-tagged builds, add platform suffix to package ID to avoid conflicts
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId$platformSuffix" --output nupkgs
           }
 
       - name: Upload NuGet package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages
+          name: nuget-packages-${{ matrix.os }}
           path: nupkgs/*.nupkg
 
   publish-nuget:
     if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
     needs: build-dotnet
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # Windows for merging packages
     steps:
-      - name: Download NuGet packages
-        uses: actions/download-artifact@v4
-        with:
-          name: nuget-packages
-          path: nupkgs
-
+      - name: Checkout
+        uses: actions/checkout@v4
+        
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '6.0.x'
+      
+      - name: Download all NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nuget-packages-*
+          path: all-nupkgs
+          merge-multiple: true
+          
+      - name: List downloaded packages
+        run: |
+          dir all-nupkgs -Recurse
+        shell: pwsh
+      
+      - name: Create merged NuGet package
+        run: |
+          # Extract version from tag
+          $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
+          
+          # Create temp dirs for each package
+          New-Item -Path "temp" -ItemType Directory -Force
+          New-Item -Path "merged" -ItemType Directory -Force
+          
+          # Get the nupkg file (should be the same name on all platforms)
+          $nupkgFiles = Get-ChildItem -Path "all-nupkgs" -Filter "*.nupkg" -Recurse
+          if ($nupkgFiles.Count -eq 0) {
+            Write-Error "No NuGet packages found!"
+            exit 1
+          }
+          
+          # Use the Windows package as base and extract it
+          $basePackage = $nupkgFiles | Where-Object { $_.FullName -like "*windows*" } | Select-Object -First 1
+          if (-not $basePackage) {
+            $basePackage = $nupkgFiles[0]
+          }
+          
+          # Extract all packages
+          foreach ($nupkg in $nupkgFiles) {
+            $extractDir = "temp/$($nupkg.BaseName)"
+            New-Item -Path $extractDir -ItemType Directory -Force
+            Expand-Archive -Path $nupkg.FullName -DestinationPath $extractDir -Force
+          }
+          
+          # Copy all extracted content to the merged folder
+          Copy-Item -Path "temp/$($basePackage.BaseName)/*" -Destination "merged/" -Recurse -Force
+          
+          # Copy runtime folders from other packages
+          foreach ($extractDir in (Get-ChildItem -Path "temp" -Directory)) {
+            if ($extractDir.Name -ne $basePackage.BaseName) {
+              $runtimesDir = Join-Path $extractDir.FullName "runtimes"
+              if (Test-Path $runtimesDir) {
+                foreach ($runtimeFolder in (Get-ChildItem -Path $runtimesDir -Directory)) {
+                  if (-not (Test-Path "merged/runtimes/$($runtimeFolder.Name)")) {
+                    Copy-Item -Path $runtimeFolder.FullName -Destination "merged/runtimes/" -Recurse -Force
+                  }
+                }
+              }
+            }
+          }
+          
+          # Create the final package
+          Compress-Archive -Path "merged/*" -DestinationPath "merged-package.zip" -Force
+          Rename-Item -Path "merged-package.zip" -NewName "MachineId.$version.nupkg"
+        shell: pwsh
+      
+      - name: Upload merged NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: merged-nuget-package
+          path: MachineId.*.nupkg
 
       - name: Publish NuGet package
         run: |
-          dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+          dotnet nuget push MachineId.*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+        shell: pwsh
