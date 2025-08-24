@@ -319,7 +319,10 @@ jobs:
                   $targetPath = "merged/runtimes/$($runtimeFolder.Name)"
                   if (-not (Test-Path $targetPath)) {
                     Write-Host "Copying runtime folder $($runtimeFolder.FullName) to $targetPath"
-                    Copy-Item -Path $runtimeFolder.FullName -Destination "merged/runtimes/" -Recurse -Force
+                    # Create the target directory first
+                    New-Item -Path $targetPath -ItemType Directory -Force
+                    # Copy only the contents, not the folder itself
+                    Copy-Item -Path "$($runtimeFolder.FullName)\*" -Destination $targetPath -Recurse -Force
                   }
                 }
               }
@@ -329,6 +332,14 @@ jobs:
           # Create the final package
           $packagePath = "Dhhieu113.MachineId.$version.nupkg"
           Write-Host "Creating final merged package as $packagePath"
+          
+          # Show the structure we're about to package
+          Write-Host "Final merged package structure:"
+          Get-ChildItem -Path "merged" -Recurse | ForEach-Object {
+            $relativePath = $_.FullName.Substring((Resolve-Path "merged").Path.Length + 1)
+            Write-Host "  $relativePath"
+          }
+          
           $zipPath = [System.IO.Path]::ChangeExtension($packagePath, "zip")
           Compress-Archive -Path "merged/*" -DestinationPath $zipPath -Force
           Rename-Item -Path $zipPath -NewName $packagePath
