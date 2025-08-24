@@ -61,6 +61,17 @@ jobs:
           cp build/**/*.dylib artifacts/ || true
           cp build/**/*.lib artifacts/ || true
           cp build/**/*.dll artifacts/ || true
+          
+          # Rename per OS to avoid conflicts
+          for f in artifacts/*; do
+            base=$(basename "$f")
+            case "${{ matrix.os }}" in
+              ubuntu-latest) new="linux-$base" ;;
+              macos-latest)  new="macos-$base" ;;
+              windows-latest) new="windows-$base" ;;
+            esac
+            mv "$f" "artifacts/$new"
+          done
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
