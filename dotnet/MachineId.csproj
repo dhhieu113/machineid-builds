@@ -23,41 +23,37 @@
 
   <ItemGroup>
     <!-- Windows native libraries -->
-    <None Include="..\bin\Release\x64\machineid_dotnet.dll" Condition="Exists('..\bin\Release\x64')">
-      <Link>runtimes\win-x64\native\machineid_dotnet.dll</Link>
+    <None Include="..\bin\Release\x64\machineid_dotnet.*" Condition="Exists('..\bin\Release\x64')">
+      <Link>runtimes\win-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x64\native\machineid_dotnet.dll</PackagePath>
+      <PackagePath>runtimes\win-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
-    <None Include="..\bin\Release\x86\machineid_dotnet.dll" Condition="Exists('..\bin\Release\x86')">
-      <Link>runtimes\win-x86\native\machineid_dotnet.dll</Link>
+    <None Include="..\bin\Release\x86\machineid_dotnet.*" Condition="Exists('..\bin\Release\x86')">
+      <Link>runtimes\win-x86\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x86\native\machineid_dotnet.dll</PackagePath>
+      <PackagePath>runtimes\win-x86\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <!-- Linux native libraries -->
-    <None Include="..\bin\Release\linux-x64\libmachineid_dotnet.so" Condition="Exists('..\bin\Release\linux-x64')">
-      <Link>runtimes\linux-x64\native\libmachineid_dotnet.so</Link>
+    <None Include="..\bin\Release\linux-x64\*.so" Condition="Exists('..\bin\Release\linux-x64')">
+      <Link>runtimes\linux-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\linux-x64\native\libmachineid_dotnet.so</PackagePath>
+      <PackagePath>runtimes\linux-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <!-- macOS native libraries -->
-    <None Include="..\bin\Release\osx-x64\libmachineid_dotnet.dylib" Condition="Exists('..\bin\Release\osx-x64')">
-      <Link>runtimes\osx-x64\native\libmachineid_dotnet.dylib</Link>
+    <None Include="..\bin\Release\osx-x64\*.dylib" Condition="Exists('..\bin\Release\osx-x64')">
+      <Link>runtimes\osx-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\osx-x64\native\libmachineid_dotnet.dylib</PackagePath>
+      <PackagePath>runtimes\osx-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\LICENSE" Pack="true" PackagePath="\" />
-    
-    <!-- Include build targets for native libraries -->
-    <None Include="build\Native.targets" Pack="true" PackagePath="build\Dhhieu113.MachineId.targets" />
-    <None Include="build\Native.targets" Pack="true" PackagePath="buildTransitive\Dhhieu113.MachineId.targets" />
   </ItemGroup>
 
 </Project>
