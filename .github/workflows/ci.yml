@@ -55,23 +55,31 @@ jobs:
         
       - name: Collect build artifacts
         run: |
-          mkdir -p artifacts
-          cp build/**/*.a artifacts/ || true
-          cp build/**/*.so* artifacts/ || true
-          cp build/**/*.dylib artifacts/ || true
-          cp build/**/*.lib artifacts/ || true
-          cp build/**/*.dll artifacts/ || true
-          
-          # Rename per OS to avoid conflicts
-          for f in artifacts/*; do
-            base=$(basename "$f")
-            case "${{ matrix.os }}" in
-              ubuntu-latest) new="linux-$base" ;;
-              macos-latest)  new="macos-$base" ;;
-              windows-latest) new="windows-$base" ;;
-            esac
-            mv "$f" "artifacts/$new"
-          done
+           mkdir -p artifacts
+            # Try to copy, ignore if not found
+            cp build/**/*.a artifacts/ 2>/dev/null || true
+            cp build/**/*.so* artifacts/ 2>/dev/null || true
+            cp build/**/*.dylib artifacts/ 2>/dev/null || true
+            cp build/**/*.lib artifacts/ 2>/dev/null || true
+            cp build/**/*.dll artifacts/ 2>/dev/null || true
+  
+            # Rename per OS only if we have files
+            if [ "$(ls -A artifacts)" ]; then
+              for f in artifacts/*; do
+                base=$(basename "$f")
+                case "${{ matrix.os }}" in
+                  ubuntu-latest) new="linux-$base" ;;
+                  macos-latest)  new="macos-$base" ;;
+                  windows-latest) new="windows-$base" ;;
+                esac
+                mv "$f" "artifacts/$new"
+              done
+            else
+              echo "⚠️ No build outputs found in build/"
+            fi
+  
+            echo "Artifacts collected:"
+            ls -la artifacts || true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
