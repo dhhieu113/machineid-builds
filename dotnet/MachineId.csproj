@@ -5,10 +5,10 @@
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Title>MachineId</Title>
+    <Title>Dhhieu113.MachineId</Title>
     <Description>.NET binding for the machineid C++ library that provides a unique identifier for the machine</Description>
     <Authors>dhhieu113</Authors>
-    <PackageId>MachineId</PackageId>
+    <PackageId>Dhhieu113.MachineId</PackageId>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/dhhieu113/machineid-builds</PackageProjectUrl>

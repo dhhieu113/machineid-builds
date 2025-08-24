@@ -192,9 +192,9 @@ jobs:
           # Extract version from tag if it exists
           if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
             $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
           } else {
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-win" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-win" --output nupkgs
           }
         shell: pwsh
       
@@ -204,9 +204,9 @@ jobs:
           # Extract version from tag if it exists
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
           else
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-linux" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-linux" --output nupkgs
           fi
         shell: bash
         
@@ -216,9 +216,9 @@ jobs:
           # Extract version from tag if it exists
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="MachineId" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
           else
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="MachineId-macos" --output nupkgs
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-macos" --output nupkgs
           fi
         shell: bash
 
@@ -312,20 +312,20 @@ jobs:
           }
           
           # Create the final package
-          Write-Host "Creating final merged package as MachineId.$version.nupkg"
+          Write-Host "Creating final merged package as Dhhieu113.MachineId.$version.nupkg"
           Compress-Archive -Path "merged/*" -DestinationPath "merged-package.zip" -Force
-          Rename-Item -Path "merged-package.zip" -NewName "MachineId.$version.nupkg"
+          Rename-Item -Path "merged-package.zip" -NewName "Dhhieu113.MachineId.$version.nupkg"
         shell: pwsh
       
       - name: Upload merged NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: merged-nuget-package
-          path: MachineId.*.nupkg
+          path: Dhhieu113.MachineId.*.nupkg
 
       - name: Publish NuGet package
         run: |
-          dotnet nuget push MachineId.*.nupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          dotnet nuget push Dhhieu113.MachineId.*.nupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
