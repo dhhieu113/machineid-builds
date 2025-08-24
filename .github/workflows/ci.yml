@@ -151,8 +151,8 @@ jobs:
           # Create directory structure for native libraries
           mkdir -p bin/Release/win-x64
           
-          # Move the Windows artifacts to appropriate folders and rename to expected name
-          find bin/Release/machineid-windows-latest-Release -name "*machineid_dotnet*.dll" -type f -exec cp {} bin/Release/win-x64/machineid_dotnet.dll \;
+          # Move the Windows artifacts to appropriate folders
+          find bin/Release/machineid-windows-latest-Release -name "*.dll" -type f -exec cp {} bin/Release/win-x64/ \;
         shell: bash
 
       - name: Organize native libraries (Linux)
@@ -161,8 +161,8 @@ jobs:
           # Create directory structure for native libraries
           mkdir -p bin/Release/linux-x64
           
-          # Move the Linux artifacts to appropriate folders and rename to expected name
-          find bin/Release/machineid-ubuntu-latest-Release -name "*machineid*dotnet*.so" -type f -exec cp {} bin/Release/linux-x64/libmachineid.dotnet.so \;
+          # Move the Linux artifacts to appropriate folders
+          find bin/Release/machineid-ubuntu-latest-Release -name "*.so" -type f -exec cp {} bin/Release/linux-x64/ \;
         shell: bash
 
       - name: Organize native libraries (macOS)
@@ -171,8 +171,8 @@ jobs:
           # Create directory structure for native libraries
           mkdir -p bin/Release/osx-x64
           
-          # Move the macOS artifacts to appropriate folders and rename to expected name
-          find bin/Release/machineid-macos-latest-Release -name "*machineid*dotnet*.dylib" -type f -exec cp {} bin/Release/osx-x64/libmachineid.dotnet.dylib \;
+          # Move the macOS artifacts to appropriate folders
+          find bin/Release/machineid-macos-latest-Release -name "*.dylib" -type f -exec cp {} bin/Release/osx-x64/ \;
         shell: bash
 
       - name: Build .NET package

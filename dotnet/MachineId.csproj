@@ -28,28 +28,26 @@
   
   <ItemGroup>
     <!-- Windows native libraries -->
-    <None Include="..\bin\Release\win-x64\machineid_dotnet.dll" Condition="Exists('..\bin\Release\win-x64\machineid_dotnet.dll')">
-      <Link>runtimes\win-x64\native\machineid_dotnet.dll</Link>
+    <None Include="..\bin\Release\win-x64\*.dll" Condition="Exists('..\bin\Release\win-x64')">
+      <Link>runtimes\win-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\win-x64\native\machineid_dotnet.dll</PackagePath>
+      <PackagePath>runtimes\win-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <!-- Linux native libraries -->
-    <None Include="..\bin\Release\linux-x64\libmachineid.dotnet.so" Condition="Exists('..\bin\Release\linux-x64\libmachineid.dotnet.so')">
-      <Link>runtimes\linux-x64\native\libmachineid.dotnet.so</Link>
+    <None Include="..\bin\Release\linux-x64\*.so" Condition="Exists('..\bin\Release\linux-x64')">
+      <Link>runtimes\linux-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\linux-x64\native\libmachineid.dotnet.so</PackagePath>
+      <PackagePath>runtimes\linux-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <!-- macOS native libraries -->
-    <None Include="..\bin\Release\osx-x64\libmachineid.dotnet.dylib" Condition="Exists('..\bin\Release\osx-x64\libmachineid.dotnet.dylib')">
-      <Link>runtimes\osx-x64\native\libmachineid.dotnet.dylib</Link>
+    <None Include="..\bin\Release\osx-x64\*.dylib" Condition="Exists('..\bin\Release\osx-x64')">
+      <Link>runtimes\osx-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
-      <PackagePath>runtimes\osx-x64\native\libmachineid.dotnet.dylib</PackagePath>
-    </None>
       <PackagePath>runtimes\osx-x64\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
