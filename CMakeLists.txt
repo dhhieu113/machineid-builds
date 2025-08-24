@@ -13,7 +13,7 @@ set_property(TARGET machineid_static PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(machineid_static
     PRIVATE src
     PUBLIC include)
-if (WIN32)
+if (WIN32 OR MINGW OR MSYS)
     target_link_libraries(machineid_static PRIVATE iphlpapi)
 endif()
 
@@ -22,13 +22,8 @@ add_library(machineid_shared SHARED src/machineid/machineid.cpp)
 target_include_directories(machineid_shared
     PRIVATE src
     PUBLIC include)
-if (WIN32)
+if (WIN32 OR MINGW OR MSYS)
     target_link_libraries(machineid_shared PRIVATE iphlpapi)
-else()
-    # Force link with iphlpapi on MSYS2/MinGW
-    if(MINGW)
-        target_link_libraries(machineid_shared PRIVATE iphlpapi)
-    endif()
 endif()
 
 # Ensure proper output names (so both are "machineid", not suffixed)
@@ -59,21 +54,21 @@ target_include_directories(machineid_dotnet
 target_link_libraries(machineid_dotnet PRIVATE machineid_static)
 
 # Add platform-specific libraries
-if (WIN32)
+if (WIN32 OR MINGW OR MSYS)
     target_link_libraries(machineid_dotnet PRIVATE iphlpapi)
 endif()
 if (APPLE)
     target_link_libraries(machineid_dotnet PRIVATE "-framework CoreFoundation" "-framework IOKit")
 endif()
-if (UNIX AND NOT APPLE)
+if (UNIX AND NOT APPLE AND NOT MINGW AND NOT MSYS)
     target_link_libraries(machineid_dotnet PRIVATE dl rt)
 endif()
 
 # Set output name for the .NET binding
-set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid.dotnet")
+set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid_dotnet")
 
-# On Windows, ensure that the .NET binding has a different output name to avoid conflicts
-if(WIN32)
+# On Windows/MinGW, ensure proper naming
+if(WIN32 OR MINGW OR MSYS)
     set_target_properties(machineid_dotnet PROPERTIES 
         RUNTIME_OUTPUT_NAME "machineid_dotnet"
         LIBRARY_OUTPUT_NAME "machineid_dotnet"

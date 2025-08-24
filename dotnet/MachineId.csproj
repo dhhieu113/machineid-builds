@@ -4,9 +4,11 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     
     <!-- Enable runtime information -->
-    <RuntimeIdentifiers>win-x64;win-x86;linux-x64;osx-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Dhhieu113.MachineId</Title>
     <Description>.NET binding for the machineid C++ library that provides a unique identifier for the machine</Description>
@@ -21,13 +23,9 @@
     <Version>1.0.0</Version> <!-- Default version, overridden by CI when built from tag -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Platforms>AnyCPU;x64;x86</Platforms>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   
-  <ItemGroup>
-    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
-  </ItemGroup>
-
   <ItemGroup>
     <!-- Windows native libraries -->
     <None Include="..\bin\Release\x64\machineid_dotnet.*" Condition="Exists('..\bin\Release\x64')">
@@ -35,12 +33,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>
       <PackagePath>runtimes\win-x64\native\%(Filename)%(Extension)</PackagePath>
-    </None>
-    <None Include="..\bin\Release\x86\machineid_dotnet.*" Condition="Exists('..\bin\Release\x86')">
-      <Link>runtimes\win-x86\native\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>runtimes\win-x86\native\%(Filename)%(Extension)</PackagePath>
     </None>
     
     <!-- Linux native libraries -->
