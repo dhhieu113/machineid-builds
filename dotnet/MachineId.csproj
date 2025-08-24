@@ -28,7 +28,7 @@
   
   <ItemGroup>
     <!-- Windows native libraries -->
-    <None Include="..\bin\Release\x64\machineid_dotnet.*" Condition="Exists('..\bin\Release\x64')">
+    <None Include="..\bin\Release\win-x64\*.dll" Condition="Exists('..\bin\Release\win-x64')">
       <Link>runtimes\win-x64\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>

@@ -154,39 +154,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           # Create directory structure for native libraries
-          New-Item -Path "bin/Release/x64" -ItemType Directory -Force
-          New-Item -Path "bin/Release/x86" -ItemType Directory -Force
+          mkdir -p bin/Release/win-x64
           
-          # Debug: List all downloaded artifacts
-          Write-Host "Listing all downloaded artifacts:"
-          Get-ChildItem -Path "bin/Release" -Recurse | Format-Table -Property FullName
-          
-          # Search for machineid_dotnet.dll in all downloaded artifacts
-          $dotnetDlls = Get-ChildItem -Path "bin/Release" -Recurse -Filter "machineid_dotnet.dll" -ErrorAction SilentlyContinue
-          
-          if ($dotnetDlls.Count -gt 0) {
-            Write-Host "Found $($dotnetDlls.Count) machineid_dotnet.dll files:"
-            foreach ($dll in $dotnetDlls) {
-              Write-Host " - $($dll.FullName)"
-            }
-            
-            # For now, copy the first found dll to both x64 and x86 (assuming it's x64 by default on GitHub runners)
-            # In a real scenario, you'd build both x64 and x86 versions separately
-            $mainDll = $dotnetDlls[0]
-            Copy-Item -Path $mainDll.FullName -Destination "bin/Release/x64/machineid_dotnet.dll" -Force
-            Write-Host "Copied $($mainDll.FullName) to bin/Release/x64/"
-            
-            # If you need x86 support, you would need to configure CMake to build for Win32 platform as well
-            Write-Warning "x86 library not built - only x64 version available"
-          } else {
-            Write-Warning "No machineid_dotnet.dll files found in any artifacts"
-            Write-Host "Searching for any .dll files:"
-            $allDlls = Get-ChildItem -Path "bin/Release" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
-            foreach ($dll in $allDlls) {
-              Write-Host " - $($dll.FullName)"
-            }
-          }
-        shell: pwsh
+          # Move the Windows artifacts to appropriate folders
+          find bin/Release/machineid-windows-latest-Release -name "*.dll" -type f -exec cp {} bin/Release/win-x64/ \;
+        shell: bash
 
       - name: Organize native libraries (Linux)
         if: matrix.os == 'ubuntu-latest'
