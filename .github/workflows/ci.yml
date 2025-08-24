@@ -61,7 +61,6 @@ jobs:
           cp build/**/*.dylib artifacts/ || true
           cp build/**/*.lib artifacts/ || true
           cp build/**/*.dll artifacts/ || true
-          ls -la artifacts || echo "No artifacts found"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
