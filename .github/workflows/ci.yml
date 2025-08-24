@@ -56,11 +56,11 @@ jobs:
       - name: Collect build artifacts
         run: |
           mkdir -p artifacts
-          cp build/**/*.a artifacts/ 2>/dev/null || true
-          cp build/**/*.so* artifacts/ 2>/dev/null || true
-          cp build/**/*.dylib artifacts/ 2>/dev/null || true
-          cp build/**/*.lib artifacts/ 2>/dev/null || true
-          cp build/**/*.dll artifacts/ 2>/dev/null || true
+          cp build/**/*.a artifacts/ || true
+          cp build/**/*.so* artifacts/ || true
+          cp build/**/*.dylib artifacts/ || true
+          cp build/**/*.lib artifacts/ || true
+          cp build/**/*.dll artifacts/ || true
           ls -la artifacts || echo "No artifacts found"
 
       - name: Upload build artifacts
