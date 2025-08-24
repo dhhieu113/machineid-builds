@@ -112,3 +112,88 @@ jobs:
           override: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-dotnet:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Download CMake build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bin/Release
+
+      - name: Organize native libraries
+        run: |
+          # Create directory structure for native libraries
+          mkdir -p bin/Release/x64
+          mkdir -p bin/Release/x86
+          
+          # Move the Windows artifacts to appropriate folders
+          if (Test-Path "bin/Release/machineid-windows-latest-Release/build/*/machineid_dotnet.dll") {
+            $x64Path = Get-ChildItem -Path "bin/Release/machineid-windows-latest-Release/build" -Recurse -Filter "machineid_dotnet.dll" | Where-Object { $_.FullName -like "*x64*" } | Select-Object -First 1
+            $x86Path = Get-ChildItem -Path "bin/Release/machineid-windows-latest-Release/build" -Recurse -Filter "machineid_dotnet.dll" | Where-Object { $_.FullName -like "*Win32*" -or $_.FullName -like "*x86*" } | Select-Object -First 1
+            
+            if ($x64Path) {
+              Copy-Item -Path $x64Path.FullName -Destination "bin/Release/x64/"
+            } else {
+              Write-Warning "x64 library not found"
+            }
+            
+            if ($x86Path) {
+              Copy-Item -Path $x86Path.FullName -Destination "bin/Release/x86/"
+            } else {
+              Write-Warning "x86 library not found"
+            }
+          } else {
+            Write-Warning "No machineid_dotnet.dll files found in artifacts"
+          }
+        shell: pwsh
+
+      - name: Build .NET package
+        run: |
+          dotnet restore dotnet/MachineId.sln
+          dotnet build dotnet/MachineId.sln --configuration Release --no-restore
+        
+      - name: Pack NuGet package
+        run: |
+          # Extract version from tag if it exists
+          if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
+            $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version --output nupkgs
+          } else {
+            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build --output nupkgs
+          }
+
+      - name: Upload NuGet package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: nupkgs/*.nupkg
+
+  publish-nuget:
+    if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
+    needs: build-dotnet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-packages
+          path: nupkgs
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Publish NuGet package
+        run: |
+          dotnet nuget push nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
