@@ -4,6 +4,9 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    
+    <!-- Enable runtime information -->
+    <RuntimeIdentifiers>win-x64;win-x86;linux-x64;osx-x64</RuntimeIdentifiers>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Title>Dhhieu113.MachineId</Title>
     <Description>.NET binding for the machineid C++ library that provides a unique identifier for the machine</Description>
@@ -20,6 +23,10 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Platforms>AnyCPU;x64;x86</Platforms>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="System.Runtime.InteropServices.RuntimeInformation" Version="4.3.0" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Windows native libraries -->
