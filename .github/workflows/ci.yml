@@ -62,4 +62,20 @@ jobs:
             build/**/*.a
             build/**/*.so
             build/**/*.dylib
+            
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
