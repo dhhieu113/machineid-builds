@@ -92,8 +92,12 @@ const char *getMachineName() {
 #include <ifaddrs.h>
 #include <net/if_types.h>
 #else //!DARWIN
+
+#ifdef __linux__
 #include <linux/if.h>
 #include <linux/sockios.h>
+#endif //!__linux__
+
 #endif //!DARWIN
 
 	const char *getMachineName() {
