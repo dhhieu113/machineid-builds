@@ -103,11 +103,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-
+  
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          overwrite: true
+          fail_on_unmatched_files: true
+          override: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
