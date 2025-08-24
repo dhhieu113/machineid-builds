@@ -1,4 +1,4 @@
-name: CI - CMake build matrix
+name: CI - MachineId Build multi-platform
 
 on:
   push:
