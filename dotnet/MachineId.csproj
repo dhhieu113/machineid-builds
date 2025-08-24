@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\bin\$(Configuration)\$(PlatformTarget)\machineid.*">
+    <None Include="..\bin\$(Configuration)\$(PlatformTarget)\machineid_dotnet.*">
       <Link>runtimes\win-$(PlatformTarget)\native\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>

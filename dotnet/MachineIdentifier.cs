@@ -9,7 +9,7 @@ namespace MachineId
     public static class MachineIdentifier
     {
         // Define the path to the native library
-        private const string LibraryName = "machineid";
+        private const string LibraryName = "machineid_dotnet";
 
         /// <summary>
         /// Gets a unique hash identifier for the current machine.

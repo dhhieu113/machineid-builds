@@ -3,9 +3,13 @@ cmake_minimum_required(VERSION 3.5)
 project(machineid LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
+# Enable PIC by default for shared libraries
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ---- STATIC LIBRARY ----
 add_library(machineid_static STATIC src/machineid/machineid.cpp)
+# Enable Position Independent Code for the static library so it can be used in shared libraries
+set_property(TARGET machineid_static PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(machineid_static
     PRIVATE src
     PUBLIC include)
@@ -61,4 +65,12 @@ if (UNIX AND NOT APPLE)
 endif()
 
 # Set output name for the .NET binding
-set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid")
+set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid.dotnet")
+
+# On Windows, ensure that the .NET binding has a different output name to avoid conflicts
+if(WIN32)
+    set_target_properties(machineid_dotnet PROPERTIES 
+        RUNTIME_OUTPUT_NAME "machineid_dotnet"
+        LIBRARY_OUTPUT_NAME "machineid_dotnet"
+        ARCHIVE_OUTPUT_NAME "machineid_dotnet")
+endif()
