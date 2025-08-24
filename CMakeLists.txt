@@ -45,8 +45,19 @@ add_library(machineid_dotnet SHARED machineid_dotnet_shim.cpp)
 target_include_directories(machineid_dotnet
     PRIVATE src
     PUBLIC include)
+
+# Link against the static library to ensure all symbols are available
+target_link_libraries(machineid_dotnet PRIVATE machineid_static)
+
+# Add platform-specific libraries
 if (WIN32)
     target_link_libraries(machineid_dotnet PRIVATE iphlpapi)
+endif()
+if (APPLE)
+    target_link_libraries(machineid_dotnet PRIVATE "-framework CoreFoundation" "-framework IOKit")
+endif()
+if (UNIX AND NOT APPLE)
+    target_link_libraries(machineid_dotnet PRIVATE dl rt)
 endif()
 
 # Set output name for the .NET binding
