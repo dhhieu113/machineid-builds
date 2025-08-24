@@ -65,5 +65,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: machineid-${{ matrix.os }}-${{ matrix.build_type }}
-          path: artifacts
+          path: |
+            build/**/*.dll
+            build/**/*.lib
+            build/**/*.exe
+            build/**/*.a
+            build/**/*.so
+            build/**/*.dylib
 
