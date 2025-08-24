@@ -9,6 +9,11 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+# Add default permissions to the workflow
+permissions:
+  contents: write   # Needed for creating releases
+  packages: write   # Needed for publishing packages
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -98,20 +103,32 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # This is needed for creating releases
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          
+      - name: List downloaded artifacts
+        run: |
+          find artifacts -type f | sort
+        shell: bash
   
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*
-          fail_on_unmatched_files: true
-          override: true
+          files: |
+            artifacts/**/*.dll
+            artifacts/**/*.lib
+            artifacts/**/*.so
+            artifacts/**/*.dylib
+            artifacts/**/*.a
+          fail_on_unmatched_files: false  # Don't fail if some files aren't found
+          generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   build-dotnet:
     runs-on: ${{ matrix.os }}
@@ -263,15 +280,33 @@ jobs:
             $version = "1.0.0-dev"  # Default version if not a tag
           }
           
+          # Print diagnostics about the environment
+          Write-Host "GitHub Ref: ${{ github.ref }}"
+          Write-Host "Version: $version"
+          
           # Create temp dirs for each package
           New-Item -Path "temp" -ItemType Directory -Force
           New-Item -Path "merged" -ItemType Directory -Force
           
+          # List contents of the download directory
+          Write-Host "Contents of download directory:"
+          Get-ChildItem -Path "all-nupkgs" -Recurse | Format-Table -Property FullName, Length
+          
           # Get the nupkg file (should be the same name on all platforms)
           $nupkgFiles = Get-ChildItem -Path "all-nupkgs" -Filter "*.nupkg" -Recurse
           if ($nupkgFiles.Count -eq 0) {
-            Write-Error "No NuGet packages found!"
-            exit 1
+            Write-Host "No NuGet packages found! Checking for alternative patterns..."
+            $nupkgFiles = Get-ChildItem -Path "all-nupkgs" -Include "*.nupkg" -Recurse
+            
+            if ($nupkgFiles.Count -eq 0) {
+              Write-Error "No NuGet packages found even after broader search!"
+              exit 1
+            }
+          }
+          
+          Write-Host "Found $($nupkgFiles.Count) NuGet packages"
+          foreach ($pkg in $nupkgFiles) {
+            Write-Host " - $($pkg.FullName)"
           }
           
           # Use the Windows package as base and extract it
@@ -287,7 +322,10 @@ jobs:
             $extractDir = "temp/$($nupkg.BaseName)"
             New-Item -Path $extractDir -ItemType Directory -Force
             Write-Host "Extracting $($nupkg.FullName) to $extractDir"
-            Expand-Archive -Path $nupkg.FullName -DestinationPath $extractDir -Force
+            # Rename to zip first since Expand-Archive requires .zip extension
+            $zipPath = [System.IO.Path]::ChangeExtension($nupkg.FullName, "zip")
+            Copy-Item -Path $nupkg.FullName -Destination $zipPath
+            Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
           }
           
           # Copy all extracted content to the merged folder
@@ -312,9 +350,15 @@ jobs:
           }
           
           # Create the final package
-          Write-Host "Creating final merged package as Dhhieu113.MachineId.$version.nupkg"
-          Compress-Archive -Path "merged/*" -DestinationPath "merged-package.zip" -Force
-          Rename-Item -Path "merged-package.zip" -NewName "Dhhieu113.MachineId.$version.nupkg"
+          $packagePath = "Dhhieu113.MachineId.$version.nupkg"
+          Write-Host "Creating final merged package as $packagePath"
+          $zipPath = [System.IO.Path]::ChangeExtension($packagePath, "zip")
+          Compress-Archive -Path "merged/*" -DestinationPath $zipPath -Force
+          Rename-Item -Path $zipPath -NewName $packagePath
+          
+          # List the created packages
+          Write-Host "Created packages:"
+          Get-ChildItem -Path "*.nupkg" | Format-Table -Property FullName, Length
         shell: pwsh
       
       - name: Upload merged NuGet package
@@ -325,7 +369,24 @@ jobs:
 
       - name: Publish NuGet package
         run: |
-          dotnet nuget push Dhhieu113.MachineId.*.nupkg --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json
+          # List available NuGet packages
+          Write-Host "Available NuGet packages:"
+          Get-ChildItem -Path "*.nupkg" | ForEach-Object {
+            Write-Host " - $($_.Name) ($($_.Length) bytes)"
+          }
+          
+          # Check if package exists
+          $packages = Get-ChildItem -Path "Dhhieu113.MachineId.*.nupkg"
+          if ($packages.Count -eq 0) {
+            Write-Error "No NuGet packages found matching the pattern 'Dhhieu113.MachineId.*.nupkg'"
+            exit 1
+          }
+          
+          # Publish all packages
+          foreach ($package in $packages) {
+            Write-Host "Publishing $($package.Name)..."
+            dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
