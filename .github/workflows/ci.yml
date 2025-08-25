@@ -15,13 +15,12 @@ permissions:
   packages: write   # Needed for publishing packages
 
 jobs:
-  build:
+  build-native:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         build_type: [Release]
-        # optionally add compiler matrix entries if you want more coverage
       fail-fast: false
 
     steps:
@@ -34,10 +33,9 @@ jobs:
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v1
         with:
-          cmake-version: '3.26.0' # adjust if needed
+          cmake-version: '3.26.0'
 
       - name: Configure (CMake)
-        # Use a cross-platform invokation — CMake chooses default generator on each runner
         run: |
           mkdir -p build
           cd build
@@ -60,337 +58,287 @@ jobs:
         
       - name: Collect build artifacts
         run: |
-           mkdir -p artifacts
-            # Try to copy, ignore if not found
-            cp build/**/*.a artifacts/ 2>/dev/null || true
-            cp build/**/*.so* artifacts/ 2>/dev/null || true
-            cp build/**/*.dylib artifacts/ 2>/dev/null || true
-            cp build/**/*.lib artifacts/ 2>/dev/null || true
-            cp build/**/*.dll artifacts/ 2>/dev/null || true
-  
-            # Rename per OS only if we have files
-            if [ "$(ls -A artifacts)" ]; then
-              for f in artifacts/*; do
-                base=$(basename "$f")
-                case "${{ matrix.os }}" in
-                  ubuntu-latest) new="linux-$base" ;;
-                  macos-latest)  new="macos-$base" ;;
-                  windows-latest) new="windows-$base" ;;
-                esac
-                mv "$f" "artifacts/$new"
-              done
-            else
-              echo "⚠️ No build outputs found in build/"
-            fi
-  
-            echo "Artifacts collected:"
-            ls -la artifacts || true
+          mkdir -p artifacts
+          
+          # Define the runtime identifier based on OS
+          case "${{ matrix.os }}" in
+            ubuntu-latest) RID="linux-x64" ;;
+            macos-latest)  RID="osx-x64" ;;
+            windows-latest) RID="win-x64" ;;
+          esac
+          
+          # Create runtime-specific directory
+          mkdir -p "artifacts/runtimes/$RID/native"
+          
+          # Copy native libraries to the correct runtime folder
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            find build -name "*.dll" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+            find build -name "*.lib" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            find build -name "*.so*" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+            find build -name "*.a" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            find build -name "*.dylib" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+            find build -name "*.a" -type f -exec cp {} "artifacts/runtimes/$RID/native/" \; 2>/dev/null || true
+          fi
+          
+          echo "Artifacts collected for $RID:"
+          ls -la "artifacts/runtimes/$RID/native/" || echo "No native libraries found"
         shell: bash
 
-      - name: Upload build artifacts
+      - name: Upload native libraries
         uses: actions/upload-artifact@v4
         with:
-          name: machineid-${{ matrix.os }}-${{ matrix.build_type }}
-          path: |
-            build/**/*.dll
-            build/**/*.lib
-            build/**/*.exe
-            build/**/*.a
-            build/**/*.so
-            build/**/*.dylib
-            
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write   # This is needed for creating releases
+          name: native-${{ matrix.os }}
+          path: artifacts/runtimes/
+
+  build-nuget:
+    needs: build-native
+    runs-on: ubuntu-latest  # Use Linux for building the NuGet package
     steps:
-      - name: Download all build artifacts
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Download all native libraries
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          
-      - name: List downloaded artifacts
+          pattern: native-*
+          path: native-libs
+
+      - name: Organize native libraries for NuGet
         run: |
-          find artifacts -type f | sort
+          # Create the runtimes directory structure
+          mkdir -p bin/Release/runtimes
+          
+          # Copy all runtime folders from different OS builds
+          echo "Downloaded artifacts structure:"
+          find native-libs -type f -name "*" | head -20
+          
+          # Move native libraries to the correct location
+          for os_dir in native-libs/native-*; do
+            if [ -d "$os_dir/runtimes" ]; then
+              cp -r "$os_dir/runtimes/"* bin/Release/runtimes/
+            fi
+          done
+          
+          # Verify the structure
+          echo "Final runtimes structure:"
+          find bin/Release/runtimes -type f | sort
+          
+          # Check that we have libraries for all platforms
+          for rid in linux-x64 osx-x64 win-x64; do
+            if [ -d "bin/Release/runtimes/$rid/native" ]; then
+              echo "✅ Found native libraries for $rid"
+              ls -la "bin/Release/runtimes/$rid/native/"
+            else
+              echo "⚠️ Missing native libraries for $rid"
+            fi
+          done
+        shell: bash
+
+      - name: Build .NET project
+        run: |
+          dotnet restore dotnet/MachineId.csproj
+          dotnet build dotnet/MachineId.csproj --configuration Release --no-restore
+
+      - name: Pack NuGet package
+        run: |
+          # Extract version from tag if it exists
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=$(echo "${{ github.ref }}" | sed 's|refs/tags/v||')
+            echo "Building version $VERSION from tag"
+          else
+            # Use a pre-release version for non-tagged builds
+            COMMIT_SHORT=$(git rev-parse --short HEAD)
+            VERSION="1.0.0-dev.$COMMIT_SHORT"
+            echo "Building development version $VERSION"
+          fi
+          
+          # Pack the NuGet package with all native libraries
+          dotnet pack dotnet/MachineId.csproj \
+            --configuration Release \
+            --no-build \
+            -p:Version=$VERSION \
+            -p:PackageId="Dhhieu113.MachineId" \
+            --output nupkgs
+          
+          # Verify the package contents
+          echo "NuGet package created:"
+          ls -la nupkgs/
+          
+          # Extract and inspect the package structure
+          mkdir -p package-inspection
+          unzip -l nupkgs/*.nupkg | head -50
+        shell: bash
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkgs/*.nupkg
+
+  test-nuget:
+    needs: build-nuget
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: test-package
+
+      - name: Test NuGet package installation
+        run: |
+          # Create a test project
+          mkdir test-project
+          cd test-project
+          dotnet new console
+          
+          # Add the local package source
+          dotnet nuget add source ../test-package --name local-test
+          
+          # Get the package name
+          PACKAGE_FILE=$(ls ../test-package/*.nupkg | head -1)
+          PACKAGE_NAME=$(basename "$PACKAGE_FILE" .nupkg | sed 's/\.[0-9].*//')
+          
+          echo "Installing package: $PACKAGE_NAME from $PACKAGE_FILE"
+          
+          # Install the package
+          dotnet add package "$PACKAGE_NAME" --source ../test-package
+          
+          # Build the test project to ensure package works
+          dotnet build
+          
+          echo "✅ Package successfully installed and project builds on ${{ matrix.os }}"
+        shell: bash
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-native, test-nuget]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all native libraries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native-artifacts
+          
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: nuget-artifacts
+          
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release-artifacts
+          
+          # Create platform-specific archives for native libraries
+          for os_dir in native-artifacts/native-*; do
+            os_name=$(basename "$os_dir" | sed 's/native-//')
+            
+            case "$os_name" in
+              ubuntu-latest) 
+                platform="linux-x64"
+                ext="tar.gz"
+                ;;
+              macos-latest)  
+                platform="osx-x64"
+                ext="tar.gz"
+                ;;
+              windows-latest) 
+                platform="win-x64"
+                ext="zip"
+                ;;
+            esac
+            
+            if [ -d "$os_dir/runtimes" ]; then
+              echo "Creating archive for $platform"
+              if [[ "$ext" == "tar.gz" ]]; then
+                tar -czf "release-artifacts/machineid-native-$platform.$ext" -C "$os_dir/runtimes/$platform" native/
+              else
+                (cd "$os_dir/runtimes/$platform" && zip -r "../../../release-artifacts/machineid-native-$platform.$ext" native/)
+              fi
+            fi
+          done
+          
+          # Copy NuGet package
+          cp nuget-artifacts/*.nupkg release-artifacts/
+          
+          echo "Release artifacts:"
+          ls -la release-artifacts/
         shell: bash
   
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-           artifacts: "artifacts/*"
-           allowUpdates: true   # 👈 allows updating existing release
-           replacesArtifacts: true  # 👈 replaces old assets
+          artifacts: "release-artifacts/*"
+          allowUpdates: true
+          replacesArtifacts: true
+          generateReleaseNotes: true
+          body: |
+            ## 📦 Installation
+            
+            ### NuGet Package
+            ```bash
+            dotnet add package Dhhieu113.MachineId
+            ```
+            
+            ### Native Libraries
+            Platform-specific native libraries are available as separate downloads if needed.
+            
+            ## 🎯 Supported Platforms
+            - Windows (x64)
+            - Linux (x64)
+            - macOS (x64)
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-  build-dotnet:
-    runs-on: ${{ matrix.os }}
-    needs: build
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.0.x'
-
-      - name: Download CMake build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: bin/Release
-
-      - name: Organize native libraries (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Create directory structure for native libraries
-          mkdir -p bin/Release/win-x64
-          
-          # Move the Windows artifacts to appropriate folders
-          find bin/Release/machineid-windows-latest-Release -name "*.dll" -type f -exec cp {} bin/Release/win-x64/ \;
-        shell: bash
-
-      - name: Organize native libraries (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # Create directory structure for native libraries
-          mkdir -p bin/Release/linux-x64
-          
-          # Move the Linux artifacts to appropriate folders
-          find bin/Release/machineid-ubuntu-latest-Release -name "*.so" -type f -exec cp {} bin/Release/linux-x64/ \;
-        shell: bash
-
-      - name: Organize native libraries (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          # Create directory structure for native libraries
-          mkdir -p bin/Release/osx-x64
-          
-          # Move the macOS artifacts to appropriate folders
-          find bin/Release/machineid-macos-latest-Release -name "*.dylib" -type f -exec cp {} bin/Release/osx-x64/ \;
-        shell: bash
-
-      - name: Build .NET package
-        run: |
-          dotnet restore dotnet/MachineId.csproj
-          dotnet build dotnet/MachineId.csproj --configuration Release --no-restore
-        
-      - name: Pack NuGet package (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Extract version from tag if it exists
-          if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
-            $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
-          } else {
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-win" --output nupkgs
-          }
-        shell: pwsh
-      
-      - name: Pack NuGet package (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          # Extract version from tag if it exists
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
-          else
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-linux" --output nupkgs
-          fi
-        shell: bash
-        
-      - name: Pack NuGet package (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          # Extract version from tag if it exists
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            version=$(echo ${{ github.ref }} | sed 's|refs/tags/v||')
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:Version=$version -p:PackageId="Dhhieu113.MachineId" --output nupkgs
-          else
-            dotnet pack dotnet/MachineId.csproj --configuration Release --no-build -p:PackageId="Dhhieu113.MachineId-macos" --output nupkgs
-          fi
-        shell: bash
-
-      - name: Upload NuGet package artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuget-packages-${{ matrix.os }}
-          path: nupkgs/*.nupkg
-
   publish-nuget:
-    if: startsWith(github.ref, 'refs/tags/v')   # only run on tag
-    needs: build-dotnet
-    runs-on: windows-latest  # Windows for merging packages
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test-nuget, release]
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkgs
+          
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '6.0.x'
       
-      - name: Download all NuGet packages
-        uses: actions/download-artifact@v4
-        with:
-          pattern: nuget-packages-*
-          path: all-nupkgs
-          merge-multiple: true
-          
-      - name: List downloaded packages
+      - name: Publish to NuGet.org
         run: |
-          dir all-nupkgs -Recurse
-        shell: pwsh
-      
-      - name: Create merged NuGet package
-        run: |
-          # Extract version from tag
-          $version = ""
-          if ("${{ github.ref }}".StartsWith('refs/tags/v')) {
-            $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v' prefix
-          } else {
-            $version = "1.0.0-dev"  # Default version if not a tag
-          }
+          # List available packages
+          echo "Publishing packages:"
+          ls -la nupkgs/
           
-          # Print diagnostics about the environment
-          Write-Host "GitHub Ref: ${{ github.ref }}"
-          Write-Host "Version: $version"
-          
-          # Create temp dirs for each package
-          New-Item -Path "temp" -ItemType Directory -Force
-          New-Item -Path "merged" -ItemType Directory -Force
-          
-          # List contents of the download directory
-          Write-Host "Contents of download directory:"
-          Get-ChildItem -Path "all-nupkgs" -Recurse | Format-Table -Property FullName, Length
-          
-          # Get the nupkg file (should be the same name on all platforms)
-          $nupkgFiles = Get-ChildItem -Path "all-nupkgs" -Filter "*.nupkg" -Recurse
-          if ($nupkgFiles.Count -eq 0) {
-            Write-Host "No NuGet packages found! Checking for alternative patterns..."
-            $nupkgFiles = Get-ChildItem -Path "all-nupkgs" -Include "*.nupkg" -Recurse
-            
-            if ($nupkgFiles.Count -eq 0) {
-              Write-Error "No NuGet packages found even after broader search!"
-              exit 1
-            }
-          }
-          
-          Write-Host "Found $($nupkgFiles.Count) NuGet packages"
-          foreach ($pkg in $nupkgFiles) {
-            Write-Host " - $($pkg.FullName)"
-          }
-          
-          # Extract all packages first
-          foreach ($nupkg in $nupkgFiles) {
-            $extractDir = "temp/$($nupkg.BaseName)"
-            New-Item -Path $extractDir -ItemType Directory -Force
-            Write-Host "Extracting $($nupkg.FullName) to $extractDir"
-            # Rename to zip first since Expand-Archive requires .zip extension
-            $zipPath = [System.IO.Path]::ChangeExtension($nupkg.FullName, "zip")
-            Copy-Item -Path $nupkg.FullName -Destination $zipPath
-            Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
-            Remove-Item $zipPath  # Clean up zip file
-          }
-          
-          # Use any package as base for common files (they should be identical)
-          $basePackage = $nupkgFiles[0]
-          $baseExtractDir = "temp/$($basePackage.BaseName)"
-          Write-Host "Using base package for common files: $($basePackage.FullName)"
-          
-          # Copy base content (excluding runtimes folder, we'll handle that separately)
-          Write-Host "Copying common files from base package..."
-          foreach ($item in (Get-ChildItem -Path $baseExtractDir)) {
-            if ($item.Name -ne "runtimes") {
-              Write-Host "  Copying $($item.Name)"
-              Copy-Item -Path $item.FullName -Destination "merged/" -Recurse -Force
-            }
-          }
-          
-          # Create runtimes directory
-          New-Item -Path "merged/runtimes" -ItemType Directory -Force
-          
-          # Collect runtime folders from ALL packages
-          $collectedRuntimes = @()
-          foreach ($extractDir in (Get-ChildItem -Path "temp" -Directory)) {
-            $runtimesDir = Join-Path $extractDir.FullName "runtimes"
-            if (Test-Path $runtimesDir) {
-              foreach ($runtimeFolder in (Get-ChildItem -Path $runtimesDir -Directory)) {
-                $runtimeId = $runtimeFolder.Name
-                if ($collectedRuntimes -notcontains $runtimeId) {
-                  $collectedRuntimes += $runtimeId
-                  $targetPath = "merged/runtimes/$runtimeId"
-                  Write-Host "Copying runtime $runtimeId from $($extractDir.Name)"
-                  New-Item -Path $targetPath -ItemType Directory -Force
-                  Copy-Item -Path "$($runtimeFolder.FullName)\*" -Destination $targetPath -Recurse -Force
-                }
-              }
-            }
-          }
-          
-          Write-Host "Collected runtimes: $($collectedRuntimes -join ', ')"
-          
-          # Verify we have all expected platforms
-          $expectedRuntimes = @("win-x64", "linux-x64", "osx-x64")
-          $missingRuntimes = $expectedRuntimes | Where-Object { $collectedRuntimes -notcontains $_ }
-          if ($missingRuntimes.Count -gt 0) {
-            Write-Warning "Missing expected runtime platforms: $($missingRuntimes -join ', ')"
-            Write-Host "Available platforms: $($collectedRuntimes -join ', ')"
-          } else {
-            Write-Host "✅ All expected runtime platforms found: $($expectedRuntimes -join ', ')"
-          }
-          
-          # Create the final package
-          $packagePath = "Dhhieu113.MachineId.$version.nupkg"
-          Write-Host "Creating final merged package as $packagePath"
-          
-          # Show the structure we're about to package
-          Write-Host "Final merged package structure:"
-          Get-ChildItem -Path "merged" -Recurse | ForEach-Object {
-            $relativePath = $_.FullName.Substring((Resolve-Path "merged").Path.Length + 1)
-            Write-Host "  $relativePath"
-          }
-          
-          $zipPath = [System.IO.Path]::ChangeExtension($packagePath, "zip")
-          Compress-Archive -Path "merged/*" -DestinationPath $zipPath -Force
-          Rename-Item -Path $zipPath -NewName $packagePath
-          
-          # List the created packages
-          Write-Host "Created packages:"
-          Get-ChildItem -Path "*.nupkg" | Format-Table -Property FullName, Length
-        shell: pwsh
-      
-      - name: Upload merged NuGet package
-        uses: actions/upload-artifact@v4
-        with:
-          name: merged-nuget-package
-          path: Dhhieu113.MachineId.*.nupkg
-
-      - name: Publish NuGet package
-        run: |
-          # List available NuGet packages
-          Write-Host "Available NuGet packages:"
-          Get-ChildItem -Path "*.nupkg" | ForEach-Object {
-            Write-Host " - $($_.Name) ($($_.Length) bytes)"
-          }
-          
-          # Check if package exists
-          $packages = Get-ChildItem -Path "Dhhieu113.MachineId.*.nupkg"
-          if ($packages.Count -eq 0) {
-            Write-Error "No NuGet packages found matching the pattern 'Dhhieu113.MachineId.*.nupkg'"
-            exit 1
-          }
-          
-          # Publish all packages
-          foreach ($package in $packages) {
-            Write-Host "Publishing $($package.Name)..."
-            dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-          }
-        shell: pwsh
+          # Publish each package (should be just one)
+          for package in nupkgs/*.nupkg; do
+            echo "Publishing $(basename $package)..."
+            dotnet nuget push "$package" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
+        shell: bash
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
