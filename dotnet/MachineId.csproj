@@ -23,34 +23,12 @@
     <Version>1.0.0</Version> <!-- Default version, overridden by CI when built from tag -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <Platforms>AnyCPU;x64</Platforms>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
   
   <ItemGroup>
-    <!-- Windows native libraries -->
-    <None Include="..\bin\Release\win-x64\*.dll" Condition="Exists('..\bin\Release\win-x64')">
-      <Link>runtimes\win-x64\native\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>runtimes\win-x64\native\%(Filename)%(Extension)</PackagePath>
-    </None>
-    
-    <!-- Linux native libraries -->
-    <None Include="..\bin\Release\linux-x64\*.so" Condition="Exists('..\bin\Release\linux-x64')">
-      <Link>runtimes\linux-x64\native\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>runtimes\linux-x64\native\%(Filename)%(Extension)</PackagePath>
-    </None>
-    
-    <!-- macOS native libraries -->
-    <None Include="..\bin\Release\osx-x64\*.dylib" Condition="Exists('..\bin\Release\osx-x64')">
-      <Link>runtimes\osx-x64\native\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>runtimes\osx-x64\native\%(Filename)%(Extension)</PackagePath>
-    </None>
-    
+    <!-- Include native libraries in the NuGet package -->
+    <None Include="../bin/Release/runtimes/**/*" Pack="true" PackagePath="runtimes" />
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
