@@ -45,32 +45,32 @@ if (BUILD_TESTING)
 endif()
 
 # ---- .NET BINDING SHIM ----
-add_library(machineid_dotnet SHARED machineid_dotnet_shim.cpp)
-target_include_directories(machineid_dotnet
+add_library(libmachineid SHARED libmachineid_shim.cpp)
+target_include_directories(libmachineid
     PRIVATE src
     PUBLIC include)
 
 # Link against the static library to ensure all symbols are available
-target_link_libraries(machineid_dotnet PRIVATE machineid_static)
+target_link_libraries(libmachineid PRIVATE machineid_static)
 
 # Add platform-specific libraries
 if (WIN32 OR MINGW OR MSYS)
-    target_link_libraries(machineid_dotnet PRIVATE iphlpapi)
+    target_link_libraries(libmachineid PRIVATE iphlpapi)
 endif()
 if (APPLE)
-    target_link_libraries(machineid_dotnet PRIVATE "-framework CoreFoundation" "-framework IOKit")
+    target_link_libraries(libmachineid PRIVATE "-framework CoreFoundation" "-framework IOKit")
 endif()
 if (UNIX AND NOT APPLE AND NOT MINGW AND NOT MSYS)
-    target_link_libraries(machineid_dotnet PRIVATE dl rt)
+    target_link_libraries(libmachineid PRIVATE dl rt)
 endif()
 
 # Set output name for the .NET binding
-set_target_properties(machineid_dotnet PROPERTIES OUTPUT_NAME "machineid_dotnet")
+set_target_properties(libmachineid PROPERTIES OUTPUT_NAME "libmachineid")
 
 # On Windows/MinGW, ensure proper naming
 if(WIN32 OR MINGW OR MSYS)
-    set_target_properties(machineid_dotnet PROPERTIES 
-        RUNTIME_OUTPUT_NAME "machineid_dotnet"
-        LIBRARY_OUTPUT_NAME "machineid_dotnet"
-        ARCHIVE_OUTPUT_NAME "machineid_dotnet")
+    set_target_properties(libmachineid PROPERTIES 
+        RUNTIME_OUTPUT_NAME "libmachineid"
+        LIBRARY_OUTPUT_NAME "libmachineid"
+        ARCHIVE_OUTPUT_NAME "libmachineid")
 endif()
