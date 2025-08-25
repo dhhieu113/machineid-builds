@@ -11,7 +11,7 @@ namespace MachineId
     public static class MachineIdentifier
     {
         // Define the path to the native library
-        private const string LibraryName = "libmachineid";
+        private const string LibraryName = "machineid_dotnet";
 
         static MachineIdentifier()
         {
@@ -28,9 +28,9 @@ namespace MachineId
             
             // Apply platform-specific naming conventions
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                libName = $"lib{LibraryName}.so";
+                libName = $"libmachineid.dotnet.so";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                libName = $"lib{LibraryName}.dylib";
+                libName = $"libmachineid.dotnet.dylib";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 libName = $"{LibraryName}.dll";
 
