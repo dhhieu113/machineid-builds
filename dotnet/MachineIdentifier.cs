@@ -25,12 +25,12 @@ namespace MachineId
                 return IntPtr.Zero;
 
             string libName = LibraryName;
-            
-            // Apply platform-specific naming conventions
+
+            // Apply platform-specific naming conventions (underscore variant matches built artifacts)
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                libName = $"libmachineid.dotnet.so";
+                libName = "libmachineid_dotnet.so";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                libName = $"libmachineid.dotnet.dylib";
+                libName = "libmachineid_dotnet.dylib";
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 libName = $"{LibraryName}.dll";
 
@@ -57,12 +57,20 @@ namespace MachineId
                 // Check for runtimes folder structure from NuGet package
                 var assemblyLocation = assembly.Location;
                 var assemblyDir = Path.GetDirectoryName(assemblyLocation);
-                
+
                 if (assemblyDir != null && platform != string.Empty)
                 {
                     var runtimesPath = Path.Combine(assemblyDir, "runtimes", platform, "native", libName);
                     if (File.Exists(runtimesPath))
                         return NativeLibrary.Load(runtimesPath);
+
+                    // In case the package included an alternate naming, try common fallbacks
+                    string altLibName = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                        ? "libmachineid_dotnet.dylib"
+                        : (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "libmachineid_dotnet.so" : libName);
+                    var altPath = Path.Combine(assemblyDir, "runtimes", platform, "native", altLibName);
+                    if (!string.Equals(altLibName, libName, StringComparison.Ordinal) && File.Exists(altPath))
+                        return NativeLibrary.Load(altPath);
                 }
             }
             catch

@@ -63,7 +63,7 @@ jobs:
           # Define the runtime identifier based on OS
           case "${{ matrix.os }}" in
             ubuntu-24.04) RID="linux-x64" ;;
-            macos-14)  RID="osx-x64" ;;
+            macos-14)  RID="osx-arm64" ;;
             windows-2022) RID="win-x64" ;;
           esac
           
@@ -147,7 +147,7 @@ jobs:
           find bin/Release/runtimes -type f | sort
           
           # Check that we have libraries for all platforms
-          for rid in linux-x64 osx-x64 win-x64; do
+          for rid in linux-x64 osx-arm64 osx-x64 win-x64; do
             if [ -d "bin/Release/runtimes/$rid/native" ]; then
               echo "✅ Found native libraries for $rid"
               ls -la "bin/Release/runtimes/$rid/native/"
@@ -300,7 +300,7 @@ jobs:
                 ext="tar.gz"
                 ;;
               macos-14)  
-                platform="osx-x64"
+                platform="osx-arm64"
                 ext="tar.gz"
                 ;;
               windows-2022) 
@@ -347,7 +347,7 @@ jobs:
             ## 🎯 Supported Platforms
             - Windows (x64)
             - Linux (x64)
-            - macOS (x64)
+            - macOS (arm64)
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
