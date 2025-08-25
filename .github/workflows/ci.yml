@@ -120,10 +120,26 @@ jobs:
           find native-libs -type f -name "*" | head -20
           
           # Move native libraries to the correct location
+          # Support both layouts:
+          #   A) native-<os>/runtimes/<rid>/native/*
+          #   B) native-<os>/<rid>/native/*
           for os_dir in native-libs/native-*; do
+            # Determine source root
             if [ -d "$os_dir/runtimes" ]; then
-              cp -r "$os_dir/runtimes/"* bin/Release/runtimes/
+              src_root="$os_dir/runtimes"
+            else
+              src_root="$os_dir"
             fi
+
+            # Copy known RIDs if present
+            for rid in linux-x64 osx-x64 win-x64; do
+              if [ -d "$src_root/$rid/native" ]; then
+                mkdir -p "bin/Release/runtimes/$rid/native"
+                # Copy native libs preserving filenames
+                cp -r "$src_root/$rid/native/"* "bin/Release/runtimes/$rid/native/" 2>/dev/null || true
+                echo "Copied native libraries for $rid from $src_root"
+              fi
+            done
           done
           
           # Verify the structure
