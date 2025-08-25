@@ -221,7 +221,7 @@ jobs:
           # Create a test project
           mkdir test-project
           cd test-project
-          dotnet new console
+          dotnet new console --framework net6.0
           
           # Add the local package source
           dotnet nuget add source ../test-package --name local-test
@@ -234,9 +234,35 @@ jobs:
           
           # Install the package
           dotnet add package "$PACKAGE_NAME" --source ../test-package --prerelease
+          # Replace Program.cs with a runtime test that calls the library
+          printf '%s\n' \
+            'using MachineId;' \
+            'using System;' \
+            '' \
+            'namespace Example' \
+            '{' \
+            '    class Program' \
+            '    {' \
+            '        static void Main(string[] args)' \
+            '        {' \
+            '            try' \
+            '            {' \
+            '                string machineHash = MachineIdentifier.GetMachineHash();' \
+            '                Console.WriteLine($"Machine Hash: {machineHash}");' \
+            '            }' \
+            '            catch (Exception ex)' \
+            '            {' \
+            '                Console.Error.WriteLine($"Error calling MachineIdentifier: {ex}");' \
+            '                Environment.Exit(1);' \
+            '            }' \
+            '        }' \
+            '    }' \
+            '}' > Program.cs
           
           # Build the test project to ensure package works
           dotnet build
+          # Run to verify the native library loads and returns a hash
+          dotnet run
           
           echo "✅ Package successfully installed and project builds on ${{ matrix.os }}"
         shell: bash
