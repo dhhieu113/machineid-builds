@@ -233,7 +233,7 @@ jobs:
           echo "Installing package: $PACKAGE_NAME from $PACKAGE_FILE"
           
           # Install the package
-          dotnet add package "$PACKAGE_NAME" --source ../test-package
+          dotnet add package "$PACKAGE_NAME" --source ../test-package --prerelease
           
           # Build the test project to ensure package works
           dotnet build
